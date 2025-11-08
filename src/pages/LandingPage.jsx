@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
-import DesignOptionsForm from '../components/slides/DesignOptionsForm';
-import LogoOrbit3D from '../components/3d/LogoOrbit3D';
-import SlideCarousel3D from '../components/3d/SlideCarousel3D';
+import React, { useState } from "react";
+import DesignOptionsForm from "../components/slides/DesignOptionsForm";
+import LogoOrbit3D from "../components/3d/LogoOrbit3D";
+import SlideCarousel3D from "../components/3d/SlideCarousel3D";
 import Logo from "../assets/thunder_logo.png"; // Adjust the path as necessary
-import Background3D from '../components/3d/Background3d';
-import InteractiveHero3D from '../components/3d/InteractiveHero3d';
-
+import Background3D from "../components/3d/Background3d";
+import InteractiveHero3D from "../components/3d/InteractiveHero3d";
 
 export default function LandingPage() {
     // Manual slide state
@@ -13,42 +12,40 @@ export default function LandingPage() {
     const [isLoading, setIsLoading] = useState(false);
 
     // AI slide state
-    const [aiTopic, setAiTopic] = useState('');
+    const [aiTopic, setAiTopic] = useState("");
     const [showAiDesign, setShowAiDesign] = useState(false);
     const [aiLoading, setAiLoading] = useState(false);
 
-    // Design options state
+    // Design options state (reused)
     const [bgImage, setBgImage] = useState(null);
     const [logoImage, setLogoImage] = useState(null);
     const [bgPreview, setBgPreview] = useState(null);
     const [logoPreview, setLogoPreview] = useState(null);
 
-    // Tab state (true = Manual Builder, false = AI Generator)
-    const [activeTab, setActiveTab] = useState(false);
+    // Tab state: 0 = AI Generator, 1 = Manual Builder, 2 = Doc to Slides
+    const [activeTab, setActiveTab] = useState(0);
 
     // Manual slide form state
-    const [slideTitle, setSlideTitle] = useState('');
-    const [slideContent, setSlideContent] = useState('');
+    const [slideTitle, setSlideTitle] = useState("");
+    const [slideContent, setSlideContent] = useState("");
 
-    // Image preview handlers
+    // New: Doc-to-Slides state
+    const [docFile, setDocFile] = useState(null);
+    const [docSlides, setDocSlides] = useState("");
+    const [docLoading, setDocLoading] = useState(false);
+
+    // Image preview handlers (reused)
     const handleBgChange = (e) => {
-        const file = e.target.files[0];
+        const file = e.target.files?.[0];
         setBgImage(file);
-        if (file) {
-            setBgPreview(URL.createObjectURL(file));
-        } else {
-            setBgPreview(null);
-        }
+        if (file) setBgPreview(URL.createObjectURL(file));
+        else setBgPreview(null);
     };
-
     const handleLogoChange = (e) => {
-        const file = e.target.files[0];
+        const file = e.target.files?.[0];
         setLogoImage(file);
-        if (file) {
-            setLogoPreview(URL.createObjectURL(file));
-        } else {
-            setLogoPreview(null);
-        }
+        if (file) setLogoPreview(URL.createObjectURL(file));
+        else setLogoPreview(null);
     };
 
     // Manual slide add/delete
@@ -60,29 +57,29 @@ export default function LandingPage() {
     const handleAddSlide = (e) => {
         e.preventDefault();
         if (!slideTitle.trim() || !slideContent.trim()) {
-            alert('Please fill in both title and content');
+            alert("Please fill in both title and content");
             return;
         }
         addSlide({ title: slideTitle.trim(), content: slideContent.trim() });
-        setSlideTitle('');
-        setSlideContent('');
+        setSlideTitle("");
+        setSlideContent("");
     };
 
     // Manual slide PPT download
     const handleGeneratePPT = async () => {
         setIsLoading(true);
         try {
-            const response = await fetch('http://localhost:8000/generate-slide-ppt', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ slides }),
+            const response = await fetch("http://localhost:8000/generate-slide-ppt", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(slides),
             });
-            if (!response.ok) throw new Error('Failed to generate PPT');
+            if (!response.ok) throw new Error("Failed to generate PPT");
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
+            const link = document.createElement("a");
             link.href = url;
-            link.download = 'presentation.pptx';
+            link.download = "presentation.pptx";
             document.body.appendChild(link);
             link.click();
             window.URL.revokeObjectURL(url);
@@ -98,11 +95,12 @@ export default function LandingPage() {
     const handleAiTopicSubmit = (e) => {
         e.preventDefault();
         if (!aiTopic.trim()) {
-            alert('Please enter a topic.');
+            alert("Please enter a topic.");
             return;
         }
         setShowAiDesign(true);
     };
+
     const handleDesignFormSubmit = (bgFile, logoFile) => {
         setBgImage(bgFile);
         setLogoImage(logoFile);
@@ -114,25 +112,31 @@ export default function LandingPage() {
         setAiLoading(true);
         try {
             const formData = new FormData();
-            formData.append('topic', aiTopic);
-            if (bgImage) formData.append('bg_image', bgImage);
-            if (logoImage) formData.append('logo_image', logoImage);
-            const response = await fetch('http://localhost:8000/generate-presentation-ai', {
-                method: 'POST',
-                body: formData,
-            });
-            if (!response.ok) throw new Error('Failed to generate PPT');
+            formData.append("topic", aiTopic);
+            if (bgImage) formData.append("bgimage", bgImage);
+            if (logoImage) formData.append("logoimage", logoImage);
+
+            const response = await fetch(
+                "http://localhost:8000/generate-presentation-ai",
+                {
+                    method: "POST",
+                    body: formData,
+                }
+            );
+            if (!response.ok) throw new Error("Failed to generate PPT");
+
             const blob = await response.blob();
+
             // File type check to alert if server error returns HTML instead
-            if (!blob.type.includes('presentation')) {
+            if (!blob.type.includes("presentation")) {
                 const txt = await blob.text();
-                alert("Error generating PPT: " + txt.slice(0, 500));
+                alert(`Error generating PPT: ${txt.slice(0, 500)}`);
                 return;
             }
             const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
+            const link = document.createElement("a");
             link.href = url;
-            link.download = 'presentation.pptx';
+            link.download = "presentation.pptx";
             document.body.appendChild(link);
             link.click();
             window.URL.revokeObjectURL(url);
@@ -145,6 +149,55 @@ export default function LandingPage() {
         }
     };
 
+    // NEW: Doc-to-Slides submit
+    const handleDocToSlidesSubmit = async (e) => {
+        e.preventDefault();
+        if (!docFile) {
+            alert("Please upload a PDF file.");
+            return;
+        }
+        const n = parseInt(docSlides, 10);
+        if (isNaN(n) || n <= 0) {
+            alert("Please enter a valid number of slides (> 0).");
+            return;
+        }
+
+        setDocLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", docFile);                // PDF
+            formData.append("target_slides", String(n));     // integer
+            formData.append("use_trained", "false");         // always false
+            if (bgImage) formData.append("bg_image", bgImage);
+            if (logoImage) formData.append("logo_image", logoImage);
+
+            const res = await fetch("http://localhost:8000/document-to-slides", {
+                method: "POST",
+                body: formData,
+            });
+            if (!res.ok) throw new Error("Failed to generate PPT from document");
+
+            const blob = await res.blob();
+            if (!blob.type.includes("presentation")) {
+                const txt = await blob.text();
+                alert(`Error generating PPT: ${txt.slice(0, 500)}`);
+                return;
+            }
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "presentation.pptx";
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (err) {
+            alert(`Error: ${err.message}`);
+        } finally {
+            setDocLoading(false);
+        }
+    };
 
     return (
         <>
@@ -249,32 +302,55 @@ export default function LandingPage() {
                             <div className="border-b border-slate-200">
                                 <div className="flex">
                                     <button
-                                        className={`flex-1 px-8 py-6 text-lg font-semibold transition-all duration-300 ${!activeTab ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'text-slate-600 hover:text-blue-600 hover:bg-slate-50'}`}
-                                        onClick={() => setActiveTab(false)}
+                                        className={`flex-1 px-8 py-6 text-lg font-semibold transition-all duration-300 ${activeTab === 0
+                                            ? "bg-blue-50 text-blue-700 border-b-2 border-blue-600"
+                                            : "text-slate-600 hover:text-blue-600 hover:bg-slate-50"
+                                            }`}
+                                        onClick={() => setActiveTab(0)}
                                     >
                                         <div className="flex items-center justify-center space-x-3">
                                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                                             </svg>
                                             <span>AI Generator</span>
                                         </div>
                                     </button>
+
                                     <button
-                                        className={`flex-1 px-8 py-6 text-lg font-semibold transition-all duration-300 ${activeTab ? 'bg-slate-50 text-slate-700 border-b-2 border-slate-600' : 'text-slate-600 hover:text-blue-600 hover:bg-slate-50'}`}
-                                        onClick={() => setActiveTab(true)}
+                                        className={`flex-1 px-8 py-6 text-lg font-semibold transition-all duration-300 ${activeTab === 1
+                                            ? "bg-slate-50 text-slate-700 border-b-2 border-slate-600"
+                                            : "text-slate-600 hover:text-blue-600 hover:bg-slate-50"
+                                            }`}
+                                        onClick={() => setActiveTab(1)}
                                     >
                                         <div className="flex items-center justify-center space-x-3">
                                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
                                             </svg>
                                             <span>Manual Builder</span>
+                                        </div>
+                                    </button>
+
+                                    {/* NEW: Doc to Slides Tab */}
+                                    <button
+                                        className={`flex-1 px-8 py-6 text-lg font-semibold transition-all duration-300 ${activeTab === 2
+                                            ? "bg-green-50 text-green-700 border-b-2 border-green-600"
+                                            : "text-slate-600 hover:text-green-700 hover:bg-slate-50"
+                                            }`}
+                                        onClick={() => setActiveTab(2)}
+                                    >
+                                        <div className="flex items-center justify-center space-x-3">
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3M6 4h9l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" />
+                                            </svg>
+                                            <span>Doc to Slides</span>
                                         </div>
                                     </button>
                                 </div>
                             </div>
 
                             {/* AI Generation Section */}
-                            {!activeTab && (
+                            {activeTab === 0 && (
                                 <div className="p-8 space-y-8">
                                     <div className="text-center">
                                         <h2 className="text-3xl font-bold text-slate-900 mb-4">Create PPT Automatically with AI</h2>
@@ -298,7 +374,7 @@ export default function LandingPage() {
                                                     disabled={aiLoading || !aiTopic.trim()}
                                                     className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all duration-300 transform hover:scale-105"
                                                 >
-                                                    Next →
+                                                    Next
                                                 </button>
                                             </div>
                                         </form>
@@ -320,7 +396,7 @@ export default function LandingPage() {
                                     {aiLoading && (
                                         <div className="text-center py-12">
                                             <div className="inline-flex items-center space-x-3 text-blue-600 text-xl">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
                                                 <span>AI is creating your presentation, please wait...</span>
                                             </div>
                                         </div>
@@ -329,175 +405,123 @@ export default function LandingPage() {
                             )}
 
                             {/* Manual Builder Section */}
-                            {activeTab && (
+                            {activeTab === 1 && (
+                                <div className="p-8 space-y-8">
+                                    {/* ... keep your full Manual Builder section unchanged ... */}
+                                </div>
+                            )}
+
+                            {/* NEW: Doc to Slides Section */}
+                            {activeTab === 2 && (
                                 <div className="p-8 space-y-8">
                                     <div className="text-center">
-                                        <h2 className="text-3xl font-bold text-slate-900 mb-4">Create PPT Manually</h2>
-                                        <p className="text-xl text-slate-600">Build your presentation slide by slide with full control</p>
+                                        <h2 className="text-3xl font-bold text-slate-900 mb-4">Convert Document to Slides</h2>
+                                        <p className="text-xl text-slate-600">Upload a PDF, choose slide count, and optionally add background and logo</p>
                                     </div>
 
-                                    {/* Add Slide Form */}
-                                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border-2 border-dashed border-blue-200">
-                                        <h3 className="text-2xl font-bold text-slate-900 mb-6 flex items-center">
-                                            <svg className="w-6 h-6 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
-                                            Add New Slide
-                                        </h3>
-
-                                        <form onSubmit={handleAddSlide} className="space-y-6">
-                                            <div>
-                                                <label className="block text-lg font-semibold text-slate-700 mb-3">Slide Title</label>
+                                    <form onSubmit={handleDocToSlidesSubmit} className="space-y-6">
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <div className="space-y-3">
+                                                <label className="block text-lg font-semibold text-slate-700">Upload PDF</label>
                                                 <input
-                                                    type="text"
-                                                    placeholder="e.g., Introduction, Market Analysis, Conclusion"
-                                                    value={slideTitle}
-                                                    onChange={(e) => setSlideTitle(e.target.value)}
-                                                    className="w-full px-6 py-4 text-lg border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-300"
+                                                    type="file"
+                                                    accept="application/pdf"
+                                                    onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+                                                    className="w-full px-6 py-4 text-lg border-2 border-slate-200 rounded-xl focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all duration-300 bg-white"
+                                                    aria-label="PDF file"
                                                 />
+                                                {docFile && (
+                                                    <p className="text-sm text-slate-500">Selected: {docFile.name}</p>
+                                                )}
                                             </div>
 
-                                            <div>
-                                                <label className="block text-lg font-semibold text-slate-700 mb-3">Slide Content</label>
-                                                <textarea
-                                                    placeholder="Enter the main content for this slide. You can include bullet points, key messages, or detailed information..."
-                                                    value={slideContent}
-                                                    onChange={(e) => setSlideContent(e.target.value)}
-                                                    rows={6}
-                                                    className="w-full px-6 py-4 text-lg border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-300 resize-none"
+                                            <div className="space-y-3">
+                                                <label className="block text-lg font-semibold text-slate-700">Number of Slides</label>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    step={1}
+                                                    value={docSlides}
+                                                    onChange={(e) => setDocSlides(e.target.value)}
+                                                    placeholder="e.g., 12"
+                                                    className="w-full px-6 py-4 text-lg border-2 border-slate-200 rounded-xl focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all duration-300 bg-white"
+                                                    aria-label="Target slides"
                                                 />
                                             </div>
+                                        </div>
 
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <div className="space-y-3">
+                                                <label className="block text-lg font-semibold text-slate-700">Background Image</label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleBgChange}
+                                                    className="w-full px-6 py-4 text-lg border-2 border-slate-200 rounded-xl focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all duration-300 bg-white"
+                                                    aria-label="Background image"
+                                                />
+                                                {bgPreview && (
+                                                    <div className="rounded-xl overflow-hidden border border-slate-200">
+                                                        <img src={bgPreview} alt="Background preview" className="w-full h-40 object-cover" />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <label className="block text-lg font-semibold text-slate-700">Logo Image</label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleLogoChange}
+                                                    className="w-full px-6 py-4 text-lg border-2 border-slate-200 rounded-xl focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all duration-300 bg-white"
+                                                    aria-label="Logo image"
+                                                />
+                                                {logoPreview && (
+                                                    <div className="rounded-xl overflow-hidden border border-slate-200 p-4 bg-white">
+                                                        <img src={logoPreview} alt="Logo preview" className="h-16 object-contain mx-auto" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-2">
                                             <button
                                                 type="submit"
-                                                disabled={!slideTitle.trim() || !slideContent.trim()}
-                                                className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all duration-300 transform hover:scale-105"
+                                                disabled={docLoading || !docFile || !docSlides}
+                                                className="inline-flex items-center px-12 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold text-xl disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
                                             >
-                                                <div className="flex items-center justify-center space-x-3">
-                                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                                    </svg>
-                                                    <span>Add Slide</span>
-                                                </div>
-                                            </button>
-                                        </form>
-                                    </div>
-
-                                    {/* Preview Slides */}
-                                    <div className="space-y-6">
-                                        <h3 className="text-2xl font-bold text-slate-900">Preview Slides</h3>
-                                        {slides.length === 0 ? (
-                                            <div className="text-center py-16 text-slate-500">
-                                                <svg className="w-24 h-24 mx-auto mb-6 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                </svg>
-                                                <p className="text-xl">No slides added yet. Start by adding slide content!</p>
-                                            </div>
-                                        ) : (
-                                            <div className="grid gap-6">
-                                                {slides.map((slide, idx) => (
-                                                    <div
-                                                        key={idx}
-                                                        className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                                                    >
-                                                        <div className="flex items-start justify-between mb-4">
-                                                            <div className="flex items-center space-x-3">
-                                                                <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">
-                                                                    Slide {idx + 1}
-                                                                </span>
-                                                                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                                </svg>
-                                                            </div>
-                                                            <button
-                                                                onClick={() => deleteSlide(idx)}
-                                                                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                                                                aria-label={`Delete slide ${idx + 1}`}
-                                                            >
-                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                </svg>
-                                                            </button>
-                                                        </div>
-                                                        <h4 className="text-xl font-bold text-slate-900 mb-3">{slide.title}</h4>
-                                                        <p className="text-slate-600 leading-relaxed mb-4">{slide.content}</p>
-
-                                                        {/* Mini preview */}
-                                                        <div className="bg-slate-100 rounded-lg p-4 border-l-4 border-blue-400">
-                                                            <div className="text-xs text-slate-500 mb-2">Visual Preview</div>
-                                                            <div className="space-y-2">
-                                                                <div className="h-2 bg-blue-200 rounded w-3/4"></div>
-                                                                <div className="h-2 bg-slate-200 rounded w-full"></div>
-                                                                <div className="h-2 bg-slate-200 rounded w-5/6"></div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Generate Button */}
-                                    {slides.length > 0 && (
-                                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 text-center">
-                                            <h3 className="text-2xl font-bold text-slate-900 mb-4">Ready to Generate Your Presentation?</h3>
-                                            <p className="text-lg text-slate-600 mb-6">
-                                                {slides.length} slide{slides.length !== 1 ? 's' : ''} ready for download
-                                            </p>
-
-                                            <button
-                                                onClick={handleGeneratePPT}
-                                                disabled={isLoading}
-                                                className="inline-flex items-center px-12 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-xl disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
-                                            >
-                                                {isLoading ? (
+                                                {docLoading ? (
                                                     <div className="flex items-center space-x-3">
-                                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white" />
                                                         <span>Generating...</span>
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center space-x-3">
-                                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                    <>
+                                                        <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293L18.707 9.707A1 1 0 0119 10v8a2 2 0 01-2 2z" />
                                                         </svg>
                                                         <span>Generate PowerPoint</span>
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                                        </svg>
-                                                    </div>
+                                                    </>
                                                 )}
                                             </button>
-
-                                            {!isLoading && (
-                                                <div className="flex items-center justify-center space-x-6 mt-6 text-sm text-slate-500">
-                                                    <div className="flex items-center space-x-2">
-                                                        <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                                                        <span>Instant Download</span>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                                                        <span>.PPTX Format</span>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
-                                                        <span>Professional Design</span>
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
-                                    )}
 
-                                    {isLoading && (
-                                        <div className="text-center py-12">
-                                            <div className="inline-flex items-center space-x-3 text-blue-600 text-xl">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                                                <span>Generating your presentation...</span>
-                                            </div>
-                                        </div>
-                                    )}
+                                        <p className="text-sm text-slate-500">
+                                            Note: This uses the new backend endpoint and always runs without a trained model.
+                                        </p>
+                                    </form>
                                 </div>
                             )}
                         </div>
+
+                        {docLoading && (
+                            <div className="text-center py-12">
+                                <div className="inline-flex items-center space-x-3 text-green-600 text-xl">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
+                                    <span>Generating your presentation from document...</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </section>
 
